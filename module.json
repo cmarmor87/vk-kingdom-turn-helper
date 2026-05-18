@@ -1,0 +1,77 @@
+{
+  "id": "vk-kingdom-turn-helper",
+  "title": "V&K Kingmaker Kingdom Turn Helper",
+  "description": "Adds kingdom turn activities and custom infrastructure structures from V&K Remastered Kingdom Building Rules for Pathfinder 2E Kingmaker. Implements the Accelerate Project, Blessed Solution, Request Foreign Aid (V&K), and Observe Customs leadership activities, plus 8 infrastructure structures (Planning Office, Publicity Office, Town Square, Town Watch, and their upgraded variants).",
+  "version": "2.0.0",
+  "url": "https://github.com/cmarmor87/vk-kingdom-turn-helper",
+  "manifest": "https://github.com/cmarmor87/vk-kingdom-turn-helper/releases/latest/download/module.json",
+  "download": "https://github.com/cmarmor87/vk-kingdom-turn-helper/releases/download/v2.0.0/vk-kingdom-turn-helper-v2.0.0.zip",
+  "bugs": "https://github.com/cmarmor87/vk-kingdom-turn-helper/issues",
+  "changelog": "https://github.com/cmarmor87/vk-kingdom-turn-helper/releases",
+  "compatibility": {
+    "minimum": "12",
+    "maximum": "13",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "Chris McDaniel",
+      "flags": {}
+    }
+  ],
+  "relationships": {
+    "systems": [
+      {
+        "id": "pf2e",
+        "type": "system",
+        "compatibility": {
+          "minimum": "5.0.0"
+        }
+      }
+    ],
+    "requires": [
+      {
+        "id": "pf2e-kingmaker-tools",
+        "type": "module",
+        "compatibility": {
+          "minimum": "5.0.0"
+        }
+      }
+    ]
+  },
+  "esmodules": [
+    "scripts/module.mjs"
+  ],
+  "styles": [
+    "styles/vk-kingdom-turn-helper.css"
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json"
+    }
+  ],
+  "socket": true,
+  "packs": [
+    {
+      "name": "vk-infrastructure-structures",
+      "label": "V&K Infrastructure Structures",
+      "path": "packs/vk-infrastructure-structures",
+      "type": "Actor",
+      "system": "pf2e",
+      "private": false,
+      "flags": {},
+      "banner": "systems/pf2e/assets/compendium-banner/red.webp"
+    }
+  ],
+  "packFolders": [
+    {
+      "name": "V&K Kingmaker Kingdom Turn Helper",
+      "sorting": "a",
+      "packs": [
+        "vk-infrastructure-structures"
+      ]
+    }
+  ]
+}

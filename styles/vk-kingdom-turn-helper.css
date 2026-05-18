@@ -1,0 +1,584 @@
+/* V&K Kingdom Turn Helper — Dark Theme Styles */
+
+/* ========================
+   Structure Picker Dialog
+   ======================== */
+
+.vk-kth-no-structures p {
+  color: #b0aaaa;
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}
+
+.vk-kth-structure-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 0.25rem;
+}
+
+.vk-kth-structure-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vk-kth-structure-card:hover:not(.disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.vk-kth-structure-card.selected {
+  background: rgba(100, 180, 255, 0.15);
+  border-color: #5ba3d9;
+  box-shadow: 0 0 4px rgba(91, 163, 217, 0.3);
+}
+
+.vk-kth-structure-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vk-kth-structure-img {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vk-kth-structure-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.vk-kth-structure-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #e8e4e0;
+  margin-bottom: 2px;
+}
+
+.vk-kth-structure-details {
+  font-size: 0.8rem;
+  color: #a09a94;
+  line-height: 1.4;
+}
+
+.vk-kth-accelerated-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #ffc107;
+  background: rgba(255, 193, 7, 0.12);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 3px;
+  padding: 1px 6px;
+  margin-top: 3px;
+}
+
+/* ========================
+   Progress Bar
+   ======================== */
+
+.vk-kth-progress-section {
+  flex-shrink: 0;
+  width: 120px;
+  text-align: center;
+}
+
+.vk-kth-progress-bar {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.vk-kth-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4caf50, #66bb6a);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.vk-kth-progress-text {
+  font-size: 0.7rem;
+  color: #a09a94;
+  margin-top: 3px;
+}
+
+/* ========================
+   Turn Tracker
+   ======================== */
+
+.vk-kth-turn-tracker {
+  margin-top: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  color: #a09a94;
+}
+
+.vk-kth-turn-tracker summary {
+  cursor: pointer;
+  color: #b0aaaa;
+  font-weight: 500;
+}
+
+.vk-kth-reset-button {
+  margin-top: 0.4rem;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.06);
+  color: #c0bab4;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.vk-kth-reset-button:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e8e4e0;
+}
+
+/* ========================
+   RP Spending Dialog
+   ======================== */
+
+.vk-kth-rp-input-section {
+  padding: 0.5rem 0;
+}
+
+.vk-kth-rp-input-section p {
+  margin: 0.25rem 0;
+  color: #d4d0cc;
+}
+
+.vk-kth-rp-input-section label {
+  display: block;
+  font-size: 0.85rem;
+  color: #b0aaaa;
+  margin-top: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.vk-kth-rp-input-section input[type="number"] {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: #e8e4e0;
+  padding: 4px 8px;
+  font-size: 0.9rem;
+}
+
+/* ========================
+   Chat Message Results
+   ======================== */
+
+.vk-kth-chat-result {
+  padding: 0.5rem;
+}
+
+.vk-kth-chat-result .result-header {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #1a1a1a;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  padding-bottom: 0.3rem;
+}
+
+.vk-kth-chat-result .result-body {
+  font-size: 0.85rem;
+  color: #2c2c2c;
+  line-height: 1.5;
+}
+
+.vk-kth-chat-result .result-body p {
+  margin: 0.25rem 0;
+}
+
+/* Degree of Success Badges */
+.vk-kth-chat-result .result-degree {
+  display: inline-block;
+  font-weight: 700;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.vk-kth-chat-result .result-degree.critical-success {
+  background: rgba(46, 125, 50, 0.15);
+  color: #2e7d32;
+  border: 1px solid rgba(46, 125, 50, 0.4);
+}
+
+.vk-kth-chat-result .result-degree.success {
+  background: rgba(21, 101, 192, 0.12);
+  color: #1565c0;
+  border: 1px solid rgba(21, 101, 192, 0.4);
+}
+
+.vk-kth-chat-result .result-degree.failure {
+  background: rgba(230, 81, 0, 0.12);
+  color: #e65100;
+  border: 1px solid rgba(230, 81, 0, 0.4);
+}
+
+.vk-kth-chat-result .result-degree.critical-failure {
+  background: rgba(183, 28, 28, 0.12);
+  color: #b71c1c;
+  border: 1px solid rgba(183, 28, 28, 0.4);
+}
+
+/* ========================
+   Chat Buttons (Blessed Solution actions)
+   ======================== */
+
+.vk-kth-chat-result .km-chat-buttons {
+  margin-top: 0.5rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.vk-kth-chat-result .km-chat-buttons button {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vk-kth-chat-result .vk-kth-roll-deduct-rp {
+  border: 1px solid rgba(183, 28, 28, 0.4);
+  background: rgba(183, 28, 28, 0.08);
+  color: #b71c1c;
+}
+
+.vk-kth-chat-result .vk-kth-roll-deduct-rp:hover:not(:disabled) {
+  background: rgba(183, 28, 28, 0.15);
+  border-color: rgba(183, 28, 28, 0.6);
+}
+
+.vk-kth-chat-result .vk-kth-gain-blessed {
+  border: 1px solid rgba(46, 125, 50, 0.4);
+  background: rgba(46, 125, 50, 0.08);
+  color: #2e7d32;
+}
+
+.vk-kth-chat-result .vk-kth-gain-blessed:hover:not(:disabled) {
+  background: rgba(46, 125, 50, 0.15);
+  border-color: rgba(46, 125, 50, 0.6);
+}
+
+.vk-kth-chat-result .vk-kth-blessed-xp {
+  border: 1px solid rgba(21, 101, 192, 0.4);
+  background: rgba(21, 101, 192, 0.08);
+  color: #1565c0;
+}
+
+.vk-kth-chat-result .vk-kth-blessed-xp:hover:not(:disabled) {
+  background: rgba(21, 101, 192, 0.15);
+  border-color: rgba(21, 101, 192, 0.6);
+}
+
+/* Foreign Aid outcome buttons */
+.vk-kth-chat-result .vk-kth-foreign-aid-rp {
+  border: 1px solid rgba(46, 125, 50, 0.4);
+  background: rgba(46, 125, 50, 0.08);
+  color: #2e7d32;
+}
+
+.vk-kth-chat-result .vk-kth-foreign-aid-rp:hover:not(:disabled) {
+  background: rgba(46, 125, 50, 0.15);
+  border-color: rgba(46, 125, 50, 0.6);
+}
+
+.vk-kth-chat-result .vk-kth-foreign-aid-delayed-rp {
+  border: 1px solid rgba(21, 101, 192, 0.4);
+  background: rgba(21, 101, 192, 0.08);
+  color: #1565c0;
+}
+
+.vk-kth-chat-result .vk-kth-foreign-aid-delayed-rp:hover:not(:disabled) {
+  background: rgba(21, 101, 192, 0.15);
+  border-color: rgba(21, 101, 192, 0.6);
+}
+
+.vk-kth-chat-result .vk-kth-foreign-aid-unrest {
+  border: 1px solid rgba(183, 28, 28, 0.4);
+  background: rgba(183, 28, 28, 0.08);
+  color: #b71c1c;
+}
+
+.vk-kth-chat-result .vk-kth-foreign-aid-unrest:hover:not(:disabled) {
+  background: rgba(183, 28, 28, 0.15);
+  border-color: rgba(183, 28, 28, 0.6);
+}
+
+.vk-kth-chat-result .km-chat-buttons button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Blessed Solution XP button on Kingdom Turn page */
+.km-turn-buttons .vk-kth-blessed-xp {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #ffc107;
+  border: 1px solid rgba(255, 193, 7, 0.4);
+  background: rgba(255, 193, 7, 0.08);
+  border-radius: 4px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.km-turn-buttons .vk-kth-blessed-xp:hover:not(:disabled) {
+  background: rgba(255, 193, 7, 0.18);
+  border-color: rgba(255, 193, 7, 0.6);
+}
+
+.km-turn-buttons .vk-kth-blessed-xp:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Blessed Solutions counter on Kingdom Turn page — inherits km-tools styling
+   via km-label, form-element-inline, km-slim-inputs, km-width-small classes */
+
+/* ========================
+   Kingdom Sheet Integration
+   ======================== */
+
+/* Match the existing kingmaker-tools activity styling */
+[data-activity-id="accelerate-project"] .km-detail-label {
+  font-weight: 600;
+}
+
+[data-activity-id="accelerate-project"] .km-kingdom-activity-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+[data-activity-id="accelerate-project"] .km-kingdom-activity-check:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-activity-id="accelerate-project"] .km-summary-degrees {
+  font-size: 0.85rem;
+  color: #b0aaaa;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+[data-activity-id="accelerate-project"] .km-summary-degrees li {
+  margin-bottom: 0.2rem;
+}
+
+[data-activity-id="accelerate-project"] .km-detail-description {
+  font-size: 0.85rem;
+  color: #a09a94;
+  font-style: italic;
+}
+
+/* ========================
+   Blessed Solution Activity
+   ======================== */
+
+[data-activity-id="blessed-solution"] .km-detail-label {
+  font-weight: 600;
+}
+
+[data-activity-id="blessed-solution"] .km-kingdom-activity-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+[data-activity-id="blessed-solution"] .km-kingdom-activity-check:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-activity-id="blessed-solution"] .km-summary-degrees {
+  font-size: 0.85rem;
+  color: #b0aaaa;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+[data-activity-id="blessed-solution"] .km-summary-degrees li {
+  margin-bottom: 0.2rem;
+}
+
+[data-activity-id="blessed-solution"] .km-detail-description {
+  font-size: 0.85rem;
+  color: #a09a94;
+  font-style: italic;
+}
+
+/* ========================
+   Blessed Solution Checkbox (injected into check dialog)
+   ======================== */
+
+.vk-kth-blessed-checkbox {
+  display: flex;
+  align-items: center;
+}
+
+.vk-kth-blessed-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #e8e4e0;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.vk-kth-blessed-checkbox label:has(input:disabled) {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.vk-kth-blessed-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* ========================
+   Request Foreign Aid (V&K)
+   ======================== */
+
+[data-activity-id="request-foreign-aid-vk"] .km-detail-label {
+  font-weight: 600;
+}
+
+[data-activity-id="request-foreign-aid-vk"] .km-kingdom-activity-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+[data-activity-id="request-foreign-aid-vk"] .km-kingdom-activity-check:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+[data-activity-id="request-foreign-aid-vk"] .km-summary-degrees {
+  font-size: 0.85rem;
+  color: #b0aaaa;
+  padding-left: 1.25rem;
+  margin-top: 0.25rem;
+}
+
+[data-activity-id="request-foreign-aid-vk"] .km-summary-degrees li {
+  margin-bottom: 0.2rem;
+}
+
+[data-activity-id="request-foreign-aid-vk"] .km-detail-description {
+  font-size: 0.85rem;
+  color: #a09a94;
+  font-style: italic;
+}
+
+/* ========================
+   Foreign Aid Group Picker (light-background dialog)
+   ======================== */
+
+.vk-kth-aid-group-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.02);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.vk-kth-aid-group-card:hover:not(.disabled) {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.3);
+}
+
+.vk-kth-aid-group-card.selected {
+  background: rgba(21, 101, 192, 0.1);
+  border-color: #1565c0;
+  box-shadow: 0 0 4px rgba(21, 101, 192, 0.25);
+}
+
+.vk-kth-aid-group-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.vk-kth-blessed-checkbox .fa-sun {
+  color: #ffc107;
+}
+
+/* ========================
+   Observe Customs Buttons
+   ======================== */
+
+/* Reduce Resource Dice button (amber/warning) */
+.vk-kth-chat-result .vk-kth-observe-reduce-dice {
+  border: 1px solid rgba(230, 126, 34, 0.4);
+  background: rgba(230, 126, 34, 0.08);
+  color: #d35400;
+}
+
+.vk-kth-chat-result .vk-kth-observe-reduce-dice:hover:not(:disabled) {
+  background: rgba(230, 126, 34, 0.15);
+  border-color: rgba(230, 126, 34, 0.6);
+}
+
+/* Observe Customs Unrest button (red) */
+.vk-kth-chat-result .vk-kth-observe-unrest {
+  border: 1px solid rgba(183, 28, 28, 0.4);
+  background: rgba(183, 28, 28, 0.08);
+  color: #b71c1c;
+}
+
+.vk-kth-chat-result .vk-kth-observe-unrest:hover:not(:disabled) {
+  background: rgba(183, 28, 28, 0.15);
+  border-color: rgba(183, 28, 28, 0.6);
+}
+
+/* Observe Customs Ruin button (dark purple) */
+.vk-kth-chat-result .vk-kth-observe-ruin {
+  border: 1px solid rgba(106, 27, 154, 0.4);
+  background: rgba(106, 27, 154, 0.08);
+  color: #6a1b9a;
+}
+
+.vk-kth-chat-result .vk-kth-observe-ruin:hover:not(:disabled) {
+  background: rgba(106, 27, 154, 0.15);
+  border-color: rgba(106, 27, 154, 0.6);
+}
+
+/* Observe Customs activity panel — inherits default km-tools button styling */
