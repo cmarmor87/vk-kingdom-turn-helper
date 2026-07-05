@@ -4,7 +4,7 @@ A [Foundry VTT](https://foundryvtt.com/) module that adds kingdom turn activitie
 
 ## Requirements
 
-- **Foundry VTT** v12 or v13
+- **Foundry VTT** v12, v13, or v14
 - **PF2e System** v5.0.0+
 - **[PF2e Kingmaker Tools](https://github.com/BernhardPossworkedelt/pf2e-kingmaker-tools)** v5.0.0+ (required dependency)
 
@@ -71,7 +71,7 @@ Infrastructure structures occupy 0 lots and are built inside existing Civic stru
 
 | Foundry VTT | PF2e System | PF2e Kingmaker Tools |
 |-------------|-------------|----------------------|
-| v12 - v13   | v5.0.0+     | v5.0.0+              |
+| v12 - v14   | v5.0.0+     | v5.0.0+              |
 
 ## License
 

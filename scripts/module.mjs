@@ -1095,7 +1095,7 @@ async function fallbackCustomCheck(structure, kingdomActor, kingdomData) {
 
   let totalModifier = profBonus + abilityMod;
 
-  const roll = await new Roll("1d20").evaluate({ async: true });
+  const roll = await new Roll("1d20").evaluate();
   const total = roll.total + totalModifier;
 
   // PF2e degree of success
@@ -2766,67 +2766,152 @@ async function openRequestForeignAidDialog() {
 
   const groups = getDiplomaticGroups(kingdomActor);
 
-  const chosenGroup = await new Promise((resolve) => {
-    let selectedGroup = null;
+  const DialogV2 = foundry.applications?.api?.DialogV2;
+  let chosenGroup = null;
 
-    const d = new Dialog({
-      title: "Request Foreign Aid (V&K) — Select Group",
-      content: buildGroupSelectionHtml(groups),
-      buttons: {
-        select: {
-          icon: '<i class="fas fa-handshake"></i>',
-          label: "Request Aid",
-          disabled: true,
-          callback: () => resolve(selectedGroup)
-        },
-        cancel: {
-          icon: '<i class="fas fa-times"></i>',
-          label: localize("cancel"),
-          callback: () => resolve(null)
+  if (DialogV2) {
+    try {
+      chosenGroup = await DialogV2.wait({
+        window: { title: "Request Foreign Aid (V&K) — Select Group" },
+        content: buildGroupSelectionHtml(groups),
+        buttons: [
+          {
+            action: "select",
+            label: "Request Aid",
+            icon: "fas fa-handshake",
+            default: true,
+            callback: (event, button, dialog) => {
+              const selected = dialog.element.querySelector(".vk-kth-aid-group-card.selected");
+              if (!selected) return null;
+              return groups.find(g => g.name === selected.dataset.groupName) ?? null;
+            }
+          },
+          {
+            action: "cancel",
+            label: localize("cancel"),
+            icon: "fas fa-times",
+            callback: () => null
+          }
+        ],
+        rejectClose: false,
+        position: { width: 520 },
+        render: (event, dialog) => {
+          const el = dialog.element;
+          if (!el) return;
+          const okBtn = el.querySelector('[data-action="select"]');
+          if (okBtn) okBtn.disabled = true;
+
+          el.querySelectorAll(".vk-kth-aid-group-card:not(.disabled)").forEach(card => {
+            card.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              el.querySelectorAll(".vk-kth-aid-group-card").forEach(c => c.classList.remove("selected"));
+              card.classList.add("selected");
+              if (okBtn) okBtn.disabled = false;
+            });
+          });
+
+          const resetBtn = el.querySelector('[data-action="reset-aid-tracker"]');
+          if (resetBtn) {
+            resetBtn.addEventListener("click", async () => {
+              const confirmed = await DialogV2.confirm({
+                window: { title: "Reset Foreign Aid Turn Tracking" },
+                content: "<p>Reset which groups have been requested this turn? Escalation values will decay by 1 for groups not requested. This should be done at the start of a new kingdom turn.</p>",
+                rejectClose: false
+              });
+              if (confirmed) {
+                await resetForeignAidTurn();
+                ui.notifications.info("Foreign Aid turn tracking has been reset.");
+                dialog.close();
+                openRequestForeignAidDialog();
+              }
+            });
+          }
+
+          const clearBtn = el.querySelector('[data-action="clear-aid-tracker"]');
+          if (clearBtn) {
+            clearBtn.addEventListener("click", async () => {
+              const confirmed = await DialogV2.confirm({
+                window: { title: "Clear All Foreign Aid Escalation" },
+                content: "<p>Clear all DC escalation for all groups? This resets everything to base values (Negotiation DC + 2).</p>",
+                rejectClose: false
+              });
+              if (confirmed) {
+                await setForeignAidTracker({ groups: {} });
+                ui.notifications.info("All Foreign Aid escalation has been cleared.");
+                dialog.close();
+                openRequestForeignAidDialog();
+              }
+            });
+          }
         }
-      },
-      default: "select",
-      render: (html) => {
-        const selectBtn = html.closest(".dialog").find('button[data-button="select"]');
-        selectBtn.prop("disabled", true);
+      });
+    } catch {
+      return;
+    }
+  } else {
+    chosenGroup = await new Promise((resolve) => {
+      let selectedGroup = null;
 
-        html.find(".vk-kth-aid-group-card:not(.disabled)").on("click", function (e) {
-          e.preventDefault();
-          e.stopPropagation();
-          html.find(".vk-kth-aid-group-card").removeClass("selected");
-          $(this).addClass("selected");
-          selectedGroup = groups.find(g => g.name === this.dataset.groupName) ?? null;
-          selectBtn.prop("disabled", false);
-        });
-
-        html.find('[data-action="reset-aid-tracker"]').on("click", async () => {
-          if (await Dialog.confirm({
-            title: "Reset Foreign Aid Turn Tracking",
-            content: "<p>Reset which groups have been requested this turn? Escalation values will decay by 1 for groups not requested. This should be done at the start of a new kingdom turn.</p>"
-          })) {
-            await resetForeignAidTurn();
-            ui.notifications.info("Foreign Aid turn tracking has been reset.");
-            d.close();
-            openRequestForeignAidDialog();
+      const d = new Dialog({
+        title: "Request Foreign Aid (V&K) — Select Group",
+        content: buildGroupSelectionHtml(groups),
+        buttons: {
+          select: {
+            icon: '<i class="fas fa-handshake"></i>',
+            label: "Request Aid",
+            disabled: true,
+            callback: () => resolve(selectedGroup)
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: localize("cancel"),
+            callback: () => resolve(null)
           }
-        });
+        },
+        default: "select",
+        render: (html) => {
+          const selectBtn = html.closest(".dialog").find('button[data-button="select"]');
+          selectBtn.prop("disabled", true);
 
-        html.find('[data-action="clear-aid-tracker"]').on("click", async () => {
-          if (await Dialog.confirm({
-            title: "Clear All Foreign Aid Escalation",
-            content: "<p>Clear all DC escalation for all groups? This resets everything to base values (Negotiation DC + 2).</p>"
-          })) {
-            await setForeignAidTracker({ groups: {} });
-            ui.notifications.info("All Foreign Aid escalation has been cleared.");
-            d.close();
-            openRequestForeignAidDialog();
-          }
-        });
-      },
-      close: () => resolve(null)
-    }, { width: 520 });
-    d.render(true);
-  });
+          html.find(".vk-kth-aid-group-card:not(.disabled)").on("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            html.find(".vk-kth-aid-group-card").removeClass("selected");
+            $(this).addClass("selected");
+            selectedGroup = groups.find(g => g.name === this.dataset.groupName) ?? null;
+            selectBtn.prop("disabled", false);
+          });
+
+          html.find('[data-action="reset-aid-tracker"]').on("click", async () => {
+            if (await Dialog.confirm({
+              title: "Reset Foreign Aid Turn Tracking",
+              content: "<p>Reset which groups have been requested this turn? Escalation values will decay by 1 for groups not requested. This should be done at the start of a new kingdom turn.</p>"
+            })) {
+              await resetForeignAidTurn();
+              ui.notifications.info("Foreign Aid turn tracking has been reset.");
+              d.close();
+              openRequestForeignAidDialog();
+            }
+          });
+
+          html.find('[data-action="clear-aid-tracker"]').on("click", async () => {
+            if (await Dialog.confirm({
+              title: "Clear All Foreign Aid Escalation",
+              content: "<p>Clear all DC escalation for all groups? This resets everything to base values (Negotiation DC + 2).</p>"
+            })) {
+              await setForeignAidTracker({ groups: {} });
+              ui.notifications.info("All Foreign Aid escalation has been cleared.");
+              d.close();
+              openRequestForeignAidDialog();
+            }
+          });
+        },
+        close: () => resolve(null)
+      }, { width: 520 });
+      d.render(true);
+    });
+  }
 
   if (!chosenGroup) return;
 
@@ -3374,10 +3459,7 @@ function installObserveCustomsChatButtonHandler() {
         { key: "strife", label: "Strife", current: kingdomData.ruin?.strife?.value ?? 0 }
       ];
 
-      const chosenRuin = await new Promise((resolve) => {
-        let selectedRuin = null;
-
-        const ruinHtml = `<div class="vk-kth-structure-list" style="gap:0.4rem">
+      const ruinHtml = `<div class="vk-kth-structure-list" style="gap:0.4rem">
           ${ruinTypes.map(r => `
             <div class="vk-kth-aid-group-card" data-ruin="${r.key}" style="cursor:pointer">
               <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:4px;background:rgba(0,0,0,0.06);font-size:1.3rem;flex-shrink:0">
@@ -3391,40 +3473,94 @@ function installObserveCustomsChatButtonHandler() {
           `).join("")}
         </div>`;
 
-        const d = new Dialog({
-          title: "Observe Customs — Choose Ruin",
-          content: ruinHtml,
-          buttons: {
-            select: {
-              icon: '<i class="fas fa-check"></i>',
-              label: "Apply Ruin",
-              disabled: true,
-              callback: () => resolve(selectedRuin)
-            },
-            cancel: {
-              icon: '<i class="fas fa-times"></i>',
-              label: "Cancel",
-              callback: () => resolve(null)
-            }
-          },
-          default: "select",
-          render: (html) => {
-            const selectBtn = html.closest(".dialog").find('button[data-button="select"]');
-            selectBtn.prop("disabled", true);
+      const RuinDialogV2 = foundry.applications?.api?.DialogV2;
+      let chosenRuin = null;
 
-            html.find(".vk-kth-aid-group-card").on("click", function (e) {
-              e.preventDefault();
-              e.stopPropagation();
-              html.find(".vk-kth-aid-group-card").removeClass("selected");
-              $(this).addClass("selected");
-              selectedRuin = ruinTypes.find(r => r.key === this.dataset.ruin) ?? null;
-              selectBtn.prop("disabled", false);
-            });
-          },
-          close: () => resolve(null)
-        }, { width: 360 });
-        d.render(true);
-      });
+      if (RuinDialogV2) {
+        try {
+          chosenRuin = await RuinDialogV2.wait({
+            window: { title: "Observe Customs — Choose Ruin" },
+            content: ruinHtml,
+            buttons: [
+              {
+                action: "select",
+                label: "Apply Ruin",
+                icon: "fas fa-check",
+                default: true,
+                callback: (event, button, dialog) => {
+                  const selected = dialog.element.querySelector(".vk-kth-aid-group-card.selected");
+                  if (!selected) return null;
+                  return ruinTypes.find(r => r.key === selected.dataset.ruin) ?? null;
+                }
+              },
+              {
+                action: "cancel",
+                label: "Cancel",
+                icon: "fas fa-times",
+                callback: () => null
+              }
+            ],
+            rejectClose: false,
+            position: { width: 360 },
+            render: (event, dialog) => {
+              const el = dialog.element;
+              if (!el) return;
+              const okBtn = el.querySelector('[data-action="select"]');
+              if (okBtn) okBtn.disabled = true;
+
+              el.querySelectorAll(".vk-kth-aid-group-card").forEach(card => {
+                card.addEventListener("click", (ev) => {
+                  ev.preventDefault();
+                  ev.stopPropagation();
+                  el.querySelectorAll(".vk-kth-aid-group-card").forEach(c => c.classList.remove("selected"));
+                  card.classList.add("selected");
+                  if (okBtn) okBtn.disabled = false;
+                });
+              });
+            }
+          });
+        } catch {
+          return;
+        }
+      } else {
+        chosenRuin = await new Promise((resolve) => {
+          let selectedRuin = null;
+
+          const d = new Dialog({
+            title: "Observe Customs — Choose Ruin",
+            content: ruinHtml,
+            buttons: {
+              select: {
+                icon: '<i class="fas fa-check"></i>',
+                label: "Apply Ruin",
+                disabled: true,
+                callback: () => resolve(selectedRuin)
+              },
+              cancel: {
+                icon: '<i class="fas fa-times"></i>',
+                label: "Cancel",
+                callback: () => resolve(null)
+              }
+            },
+            default: "select",
+            render: (html) => {
+              const selectBtn = html.closest(".dialog").find('button[data-button="select"]');
+              selectBtn.prop("disabled", true);
+
+              html.find(".vk-kth-aid-group-card").on("click", function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                html.find(".vk-kth-aid-group-card").removeClass("selected");
+                $(this).addClass("selected");
+                selectedRuin = ruinTypes.find(r => r.key === this.dataset.ruin) ?? null;
+                selectBtn.prop("disabled", false);
+              });
+            },
+            close: () => resolve(null)
+          }, { width: 360 });
+          d.render(true);
+        });
+      }
 
       if (!chosenRuin) return;
 
