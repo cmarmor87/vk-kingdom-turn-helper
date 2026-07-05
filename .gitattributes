@@ -1,3 +1,7 @@
 # Exclude development-only files from `git archive` release builds
 .gitignore export-ignore
 .gitattributes export-ignore
+
+# LevelDB compendium pack files are binary. Never apply EOL/text
+# normalization — a CRLF-injected CURRENT/MANIFEST corrupts the pack.
+packs/** binary
