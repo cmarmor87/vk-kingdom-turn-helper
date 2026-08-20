@@ -41,7 +41,16 @@ Eight custom V&K infrastructure structures added to the Build Structure compendi
 | Town Watch | 3 | — | +1 Repair Reputation (Crime) |
 | City Watch | 9 | Town Watch | +2 Repair Reputation (Crime) |
 
-Infrastructure structures occupy 0 lots and are built inside existing Civic structures.
+Infrastructure structures represent administrative bodies and civic services housed within existing
+buildings rather than new construction — they occupy **0 lots** and are built inside existing Civic
+structures, letting a growing settlement deepen its governance without spending precious block space.
+Each is a full pf2e-kingmaker-tools structure actor: it appears in the Build Structure browser
+alongside the standard structures, with its bonuses applied automatically through km-tools' modifier
+system.
+
+All eight structures ship with **unified token art** — a matching set of custom tokens created for
+this module, so infrastructure placed on your settlement maps shares one consistent visual style,
+including distinct art for each upgraded variant.
 
 ## Installation
 
