@@ -48,7 +48,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           zip -r "$MODULE_ID-v$VERSION.zip" \
-            module.json scripts styles lang packs img LICENSE README.md
+            module.json scripts styles lang packs img LICENSE OpenGameLicense.md README.md
 
       - name: Create GitHub release and upload assets
         if: github.event_name == 'push'

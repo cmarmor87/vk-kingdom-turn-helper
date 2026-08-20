@@ -75,7 +75,10 @@ Infrastructure structures occupy 0 lots and are built inside existing Civic stru
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+- **Code:** MIT License. See [LICENSE](LICENSE) for details.
+- **Game content:** This module uses game rules and content derived from works published under the
+  Open Game License v1.0a, including the Pathfinder Kingmaker Adventure Path © 2022, Paizo Inc.
+  See [OpenGameLicense.md](OpenGameLicense.md) for the full license text and copyright notices.
 
 ## Credits
 
