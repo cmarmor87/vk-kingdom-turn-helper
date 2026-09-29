@@ -23,6 +23,9 @@ A Fortune/Leadership activity that blesses a specific kingdom skill check. On su
 #### Request Foreign Aid (V&K)
 Updated V&K version of Request Foreign Aid with per-group DC escalation tracking. The DC starts at Negotiation DC + 2 and increases by +2 each consecutive turn you request from the same group, decaying by 1 each turn you don't. Includes a group picker dialog with DC breakdown, auto-reset on End Turn, and clickable chat buttons for all outcomes (gain RP, delayed RP, or Unrest).
 
+#### Reconnoiter Hex (V&K)
+Corrected implementation of pf2e-kingmaker-tools' built-in Reconnoiter Hex (V&K), which only allowed Wilderness and used the flat Control DC. This version allows either **Exploration or Wilderness**, and asks which Stolen Lands zone contains the hex before the check dialog opens. The DC is then set automatically to **Control DC + zone level − kingdom level** (e.g., an 8th-level kingdom with Control DC 26 reconnoitering a hex in Hooktongue Slough, zone 10, rolls against DC 28). The zone picker lists every zone with its level and resulting DC.
+
 #### Observe Customs
 A Folklore (Culture) activity that grants Stability-based circumstance bonuses through traditional rites. On success, the +1/+2 bonus is applied automatically via km-tools' modifier system. Failure and critical failure outcomes include chat buttons to apply Resource Dice reductions, Unrest, and a Ruin picker dialog.
 
