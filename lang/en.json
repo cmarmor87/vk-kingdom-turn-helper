@@ -55,6 +55,24 @@
 
     "observeCustomsResultTitle": "Observe Customs — Result",
     "observeCustomsChooseRuin": "Choose a Ruin to increase by 1.",
-    "observeCustomsApplyRuin": "Apply Ruin"
+    "observeCustomsApplyRuin": "Apply Ruin",
+
+    "constructionCategory": {
+      "normal": "Normal",
+      "residential": "Residential",
+      "infrastructure": "Infrastructure",
+      "edifice": "Edifice"
+    },
+    "constructionLimitLine": "<strong>V&K construction limit:</strong> up to {maxRp} RP per turn on a {category} structure (d{die} Resource Die{yard}).",
+    "constructionYardNote": " + Construction Yard",
+    "constructionPartial": "Pay <strong>{pay}</strong> RP now. The structure starts at <strong>{current}/{total}</strong> RP and has no effect until the remaining {remaining} RP are paid on a later turn, through Ongoing Construction or Accelerate Project.",
+    "constructionPartialShort": "Pay <strong>{pay}</strong> of {total} RP now; construction continues on a later turn.",
+    "constructionComplete": "Pay <strong>{pay}</strong> RP. The full cost fits within this turn's limit.",
+    "constructionLimitsSummary": "{normal} · Residential {residential} · Infrastructure {infrastructure} · Edifice {edifice}",
+    "ongoingConstructionTitle": "Ongoing Construction",
+    "constructionPenaltyNote": "Accelerate Project critical failure this turn: −{penalty} RP.",
+    "constructionSameTurnNote": "A structure started with Build Structure this turn cannot receive Ongoing Construction until next turn.",
+    "constructionNoRpAllowed": "No RP may be spent on {structure} during Ongoing Construction this turn.",
+    "constructionNotFound": "Could not find that structure's data."
   }
 }

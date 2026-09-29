@@ -8,6 +8,8 @@
  *   - Request Foreign Aid (V&K): Leadership activity with per-group DC tracking.
  *   - Observe Customs: Folklore leadership activity for Stability bonuses (V&K).
  *   - V&K Infrastructure Structures: 8 custom structures added to Build Structure.
+ *   - V&K Construction Limits: per-trait RP limits on km-tools' Build Structure card
+ *     and Ongoing Construction (km-tools applies a flat 2x Resource Die limit).
  *
  * Strategy: Register as homebrew activities in pf2e-kingmaker-tools so the built-in
  * check dialog handles skill rolls, modifiers, leader selection, etc. natively.
@@ -17,7 +19,8 @@
  * Data model notes (pf2e-kingmaker-tools internals):
  *   - Structure data: actor.flags['pf2e-kingmaker-tools'].structureData (ref or full)
  *   - Construction progress: actor.system.attributes.hp.value / hp.max
- *   - Under construction: actor has PF2e "slowed" condition
+ *   - Under construction: hp.value < hp.max and no "slowed" condition (km-tools 6.x;
+ *     "slowed" marks a delayed structure left by a failed Build Structure)
  *   - Kingdom data: actor.flags['pf2e-kingmaker-tools']['kingdom-sheet']
  *   - Homebrew activities: kingdom.homebrewActivities array
  *   - supernaturalSolutions: counter on kingdom data object (checkbox enabled when > 0)
@@ -466,11 +469,30 @@ function getKingdomData(kingdomActor) {
   return kingdomActor?.getFlag(KM_TOOLS_ID, "kingdom-sheet");
 }
 
-function getResourceDieSize(level) {
-  if (level >= 20) return 12;
-  if (level >= 15) return 10;
-  if (level >= 10) return 8;
-  if (level >= 5) return 6;
+/**
+ * Kingdom Size (claimed hexes), read the way pf2e-kingmaker-tools reads it: from the
+ * Kingmaker module's hex map when resources are automated that way, otherwise from the
+ * kingdom sheet. (Tile-based realm scenes also fall back to the sheet's size.)
+ */
+function getKingdomSize(kingdomData) {
+  const hexes = globalThis.kingmaker?.state?.hexes;
+  if (kingdomData?.settings?.automateResources === "kingmaker" && hexes) {
+    const values = hexes instanceof Map ? [...hexes.values()] : Object.values(hexes);
+    return values.filter(h => h?.claimed === true).length;
+  }
+  return kingdomData?.size ?? 0;
+}
+
+/**
+ * Resource Die size comes from Kingdom Size, not kingdom level (V&K p. 38):
+ * 1-9 d4, 10-24 d6, 25-49 d8, 50-99 d10, 100+ d12.
+ */
+function getResourceDieSize(kingdomData) {
+  const size = getKingdomSize(kingdomData);
+  if (size >= 100) return 12;
+  if (size >= 50) return 10;
+  if (size >= 25) return 8;
+  if (size >= 10) return 6;
   return 4;
 }
 
@@ -481,7 +503,7 @@ function getResourceDieSize(level) {
  */
 function calculateControlDC(kingdomData) {
   const level = kingdomData?.level ?? 1;
-  const size = kingdomData?.size ?? 0;
+  const size = getKingdomSize(kingdomData);
 
   // Size modifier based on number of hexes claimed
   let sizeModifier = 0;
@@ -546,12 +568,14 @@ function findStructuresUnderConstruction() {
       const rawStructureData = actor.getFlag(KM_TOOLS_ID, "structureData");
       if (!rawStructureData) continue;
 
-      const isSlowed = actor.itemTypes?.condition?.some(c => c.slug === "slowed");
-      if (!isSlowed) continue;
+      // km-tools 6.x: a structure is under construction while its RP (hit points) are
+      // not fully paid. Slowed marks a delayed structure from a failed Build Structure,
+      // which is rebuilt next turn rather than accelerated.
+      if (isStructureSlowed(actor)) continue;
 
       const currentRp = actor.system?.attributes?.hp?.value ?? 0;
       const totalRp = actor.system?.attributes?.hp?.max ?? 0;
-      if (currentRp >= totalRp && totalRp > 0) continue;
+      if (totalRp <= 0 || currentRp >= totalRp) continue;
 
       const structureData = resolveStructureData(rawStructureData);
 
@@ -573,6 +597,301 @@ function findStructuresUnderConstruction() {
 
   return structures;
 }
+
+// ========================
+// V&K Construction Limits
+// ========================
+//
+// V&K limits the RP a kingdom may spend on one structure each turn (pp. 45-46, 51):
+//   Normal 2x the Resource Die, Residential 3x, Infrastructure 1x, Edifice 1x.
+// A settlement with a completed Construction Yard adds +2 (Residential +3, Edifice +1).
+// When a structure costs more, Build Structure spends exactly the limit and construction
+// continues on later turns (Ongoing Construction or Accelerate Project).
+//
+// pf2e-kingmaker-tools' "Partial Structure Construction" setting applies a flat 2x limit
+// to every structure. With that setting on, this section corrects:
+//   - the Build Structure chat card (Pay amount, Set Structure HP value, and a note)
+//   - the Structure Browser's "Spend RP" button on unfinished structures
+//   - the limits shown in the Structure Browser
+
+const CONSTRUCTION_LIMITS = {
+  normal: { multiplier: 2, yardBonus: 2 },
+  residential: { multiplier: 3, yardBonus: 3 },
+  infrastructure: { multiplier: 1, yardBonus: 2 },
+  edifice: { multiplier: 1, yardBonus: 1 }
+};
+
+function isPartialConstructionEnabled(kingdomData) {
+  return kingdomData?.settings?.partialStructureConstruction === true;
+}
+
+function getConstructionCategory(structureData) {
+  const traits = structureData?.traits ?? [];
+  if (traits.includes("infrastructure")) return "infrastructure";
+  if (traits.includes("edifice")) return "edifice";
+  if (traits.includes("residential")) return "residential";
+  return "normal";
+}
+
+function isStructureSlowed(actor) {
+  return actor?.itemTypes?.condition?.some(c => c.slug === "slowed") ?? false;
+}
+
+function isStructureRpPaid(actor) {
+  const hp = actor?.system?.attributes?.hp;
+  if (!hp?.max) return true;
+  return (hp.value ?? 0) >= hp.max;
+}
+
+function sceneHasConstructionYard(scene) {
+  if (!scene) return false;
+  return scene.tokens.some(token => {
+    const actor = token.actor;
+    if (!actor) return false;
+    const structureData = resolveStructureData(actor.getFlag(KM_TOOLS_ID, "structureData"));
+    if (!structureData?.id?.startsWith("construction-yard")) return false;
+    return !isStructureSlowed(actor) && isStructureRpPaid(actor);
+  });
+}
+
+function getActiveSettlementScene(kingdomData) {
+  const id = kingdomData?.activeSettlement;
+  return (id && game.scenes.get(id)) || canvas?.scene || null;
+}
+
+function getConstructionLimit(structureData, kingdomData, scene) {
+  const category = getConstructionCategory(structureData);
+  const { multiplier, yardBonus } = CONSTRUCTION_LIMITS[category];
+  const dieSize = getResourceDieSize(kingdomData);
+  const yard = sceneHasConstructionYard(scene);
+  return { category, dieSize, yard, maxRp: dieSize * multiplier + (yard ? yardBonus : 0) };
+}
+
+function constructionLimitLine({ category, dieSize, yard, maxRp }) {
+  return localize("constructionLimitLine", {
+    maxRp,
+    category: localize(`constructionCategory.${category}`),
+    die: dieSize,
+    yard: yard ? localize("constructionYardNote") : ""
+  });
+}
+
+function findWorldStructureByName(name) {
+  if (!name) return null;
+  return game.actors.find(a => a.name === name && a.getFlag(KM_TOOLS_ID, "structureData")) ?? null;
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Correct a km-tools Build Structure card before it is posted. km-tools prices the
+ * "Pay" button and the "Set Structure HP" button with its flat 2x limit; rewrite both
+ * with the V&K limit for the structure's traits and add a note explaining it.
+ *
+ * km-tools' own numbers recover the RP cost of this build (new, upgrade or repair):
+ * its Set-HP value is min(fullCost, fullCost - buildCost + 2x die).
+ */
+function applyConstructionLimitToCard(message) {
+  const content = message.content;
+  if (typeof content !== "string" || !content.includes("km-pay-structure")) return;
+
+  const kingdomData = getKingdomData(findKingdomActor());
+  if (!isPartialConstructionEnabled(kingdomData)) return;
+
+  const wrapper = document.createElement("div");
+  wrapper.innerHTML = content;
+  if (wrapper.querySelector(".vk-kth-construction-limit")) return;
+
+  const payBtn = wrapper.querySelector("button.km-pay-structure");
+  if (!payBtn) return;
+  const hpBtn = wrapper.querySelector("button.km-set-structure-hp");
+
+  // "Constructing {structureName}" -> structure name
+  const [prefix = "", suffix = ""] = localizeKM("kingdom.constructing").split("{structureName}");
+  let structureName = wrapper.querySelector("h3")?.textContent?.trim() ?? "";
+  if (prefix && structureName.startsWith(prefix)) structureName = structureName.slice(prefix.length);
+  if (suffix && structureName.endsWith(suffix)) structureName = structureName.slice(0, -suffix.length);
+  structureName = structureName.trim();
+
+  const linked = [...wrapper.querySelectorAll("a[data-uuid]")]
+    .map(a => fromUuidSync(a.dataset.uuid))
+    .find(doc => doc?.name === structureName && doc.getFlag?.(KM_TOOLS_ID, "structureData"));
+  const structureActor = linked ?? findWorldStructureByName(structureName);
+  const structureData = resolveStructureData(structureActor?.getFlag(KM_TOOLS_ID, "structureData"));
+  if (!structureData) {
+    console.warn(`${MODULE_ID} | Build Structure card: could not identify "${structureName}"; left unchanged`);
+    return;
+  }
+
+  const scene = getActiveSettlementScene(kingdomData);
+  const limit = getConstructionLimit(structureData, kingdomData, scene);
+  const kmToolsLimit = limit.dieSize * 2;
+  const fullCost = structureData.construction?.rp ?? 0;
+  const cardRp = parseInt(payBtn.dataset.rp) || 0;
+
+  let buildRp;
+  if (hpBtn) {
+    const cardHp = parseInt(hpBtn.dataset.hp) || 0;
+    buildRp = cardHp < fullCost ? fullCost - cardHp + kmToolsLimit : cardRp;
+  } else {
+    buildRp = cardRp < kmToolsLimit ? cardRp : Math.max(cardRp, fullCost);
+  }
+  if (buildRp <= 0) return;
+
+  const payRp = Math.min(buildRp, limit.maxRp);
+  const startHp = Math.max(0, Math.min(fullCost, fullCost - buildRp + payRp));
+
+  payBtn.dataset.rp = String(payRp);
+  const rpLabel = escapeRegExp(localizeKM("kingdom.rp"));
+  payBtn.innerHTML = payBtn.innerHTML.replace(new RegExp(`(${rpLabel}:\\s*)\\d+`), `$1${payRp}`);
+
+  let statusLine;
+  if (hpBtn) {
+    hpBtn.dataset.hp = String(startHp);
+    hpBtn.textContent = localizeKM("kingdom.setStructureHp").replace("{hp}", String(startHp));
+    statusLine = payRp < buildRp
+      ? localize("constructionPartial", { pay: payRp, current: startHp, total: fullCost, remaining: Math.max(0, fullCost - startHp) })
+      : localize("constructionComplete", { pay: payRp });
+  } else {
+    statusLine = payRp < buildRp
+      ? localize("constructionPartialShort", { pay: payRp, total: buildRp })
+      : localize("constructionComplete", { pay: payRp });
+  }
+
+  const note = document.createElement("div");
+  note.className = "vk-kth-construction-limit";
+  note.innerHTML = `<p>${constructionLimitLine(limit)}</p><p>${statusLine}</p>`;
+  payBtn.insertAdjacentElement("afterend", note);
+
+  message.updateSource({
+    content: wrapper.innerHTML,
+    flags: {
+      [MODULE_ID]: {
+        construction: { structure: structureData.id, ...limit, buildRp, payRp, startHp, fullCost }
+      }
+    }
+  });
+  console.log(`${MODULE_ID} | Build Structure card: ${structureName} (${limit.category}) pays ${payRp} of ${buildRp} RP (limit ${limit.maxRp}); starts at ${startHp}/${fullCost}`);
+}
+
+/**
+ * Ongoing Construction: spend RP on an unfinished structure, capped at its V&K limit
+ * less any Accelerate Project critical-failure penalty from this turn.
+ */
+async function openOngoingConstructionDialog(actorUuid, button) {
+  const actor = actorUuid ? await fromUuid(actorUuid) : null;
+  const structureData = resolveStructureData(actor?.getFlag(KM_TOOLS_ID, "structureData"));
+  if (!actor || !structureData) {
+    ui.notifications.error(localize("constructionNotFound"));
+    return;
+  }
+
+  const kingdomData = getKingdomData(findKingdomActor());
+  const scene = actor.token?.parent ?? getActiveSettlementScene(kingdomData);
+  const limit = getConstructionLimit(structureData, kingdomData, scene);
+  const penalty = getTurnTracker().penalties?.[actor.id] ?? 0;
+  const allowed = Math.max(0, limit.maxRp - penalty);
+  if (allowed <= 0) {
+    ui.notifications.warn(localize("constructionNoRpAllowed", { structure: actor.name }));
+    return;
+  }
+
+  const currentRp = actor.system?.attributes?.hp?.value ?? 0;
+  const totalRp = actor.system?.attributes?.hp?.max ?? 0;
+  const structure = {
+    actorId: actor.id,
+    actorUuid: actor.uuid,
+    name: actor.name,
+    structureData,
+    currentRp,
+    totalRp,
+    remainingRp: Math.max(0, totalRp - currentRp)
+  };
+  const note = [
+    constructionLimitLine(limit),
+    penalty ? localize("constructionPenaltyNote", { penalty }) : "",
+    localize("constructionSameTurnNote")
+  ].filter(Boolean).map(line => `<p>${line}</p>`).join("");
+
+  const spent = await promptSpendRp(structure, allowed, {
+    note,
+    title: localize("ongoingConstructionTitle"),
+    source: "ongoing"
+  });
+  if (spent > 0) {
+    const appElement = button?.closest?.(".application");
+    const app = appElement ? foundry.applications?.instances?.get(appElement.id) : null;
+    app?.render?.();
+  }
+}
+
+/** Replace km-tools' "Spend RP" handler on unfinished structures with the V&K-limited one. */
+function installConstructionLimitInterceptor() {
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest?.('[data-action="advance-construction"]');
+    if (!btn || btn.disabled) return;
+    if (!isPartialConstructionEnabled(getKingdomData(findKingdomActor()))) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    openOngoingConstructionDialog(btn.dataset.actorUuid, btn);
+  }, true);
+}
+
+/** Show per-trait limits in the Structure Browser instead of km-tools' single figure. */
+function annotateStructureBrowser(element) {
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  const browser = root?.querySelector?.(".km-browser");
+  if (!browser) return;
+
+  const kingdomData = getKingdomData(findKingdomActor());
+  if (!isPartialConstructionEnabled(kingdomData)) return;
+
+  const dieSize = getResourceDieSize(kingdomData);
+  const yard = sceneHasConstructionYard(getActiveSettlementScene(kingdomData));
+  const limitFor = (category) =>
+    dieSize * CONSTRUCTION_LIMITS[category].multiplier + (yard ? CONSTRUCTION_LIMITS[category].yardBonus : 0);
+
+  const label = localizeKM("kingdom.rpPerStructure");
+  for (const row of browser.querySelectorAll(".km-structure-filters .km-space-form-elements")) {
+    if (row.querySelector("b")?.textContent?.trim() !== label) continue;
+    row.innerHTML = `<b>${label}</b>: ${localize("constructionLimitsSummary", {
+      normal: limitFor("normal"),
+      residential: limitFor("residential"),
+      infrastructure: limitFor("infrastructure"),
+      edifice: limitFor("edifice")
+    })}`;
+  }
+
+  const rpNow = kingdomData?.resourcePoints?.now ?? 0;
+  for (const btn of browser.querySelectorAll('button[data-action="build-structure"]')) {
+    const rp = parseInt(btn.dataset.rp) || 0;
+    const rpItem = btn.closest(".km-structure")?.querySelector(".km-rp");
+    if (rp <= 0 || !rpItem) continue;
+    const structureData = resolveStructureData(fromUuidSync(btn.dataset.uuid)?.getFlag?.(KM_TOOLS_ID, "structureData"));
+    if (!structureData) continue;
+    const limit = limitFor(getConstructionCategory(structureData));
+    rpItem.textContent = rp > limit ? `${limit}/${rp}` : String(rp);
+    rpItem.classList.toggle("km-lacks-funds", Math.min(limit, rp) > rpNow);
+  }
+}
+
+Hooks.on("preCreateChatMessage", (message) => {
+  try {
+    applyConstructionLimitToCard(message);
+  } catch (err) {
+    console.error(`${MODULE_ID} | Could not apply V&K construction limits to a Build Structure card:`, err);
+  }
+});
+
+Hooks.on("renderApplicationV2", (app, element) => {
+  try {
+    annotateStructureBrowser(element);
+  } catch (err) {
+    console.error(`${MODULE_ID} | Could not annotate the Structure Browser:`, err);
+  }
+});
 
 // ========================
 // Homebrew Activity Registration
@@ -743,7 +1062,7 @@ function buildStructureSelectionHtml(structures, turnTracker, kingdomData) {
 // RP Spending (post-check)
 // ========================
 
-async function promptSpendRp(structure, maxRp) {
+async function promptSpendRp(structure, maxRp, options = {}) {
   const rpNeeded = structure.totalRp - structure.currentRp;
   const kingdomActor = findKingdomActor();
   const kingdomData = kingdomActor ? getKingdomData(kingdomActor) : null;
@@ -752,6 +1071,7 @@ async function promptSpendRp(structure, maxRp) {
 
   const content = `
     <div class="vk-kth-rp-input-section">
+      ${options.note ? `<div class="vk-kth-construction-limit">${options.note}</div>` : ""}
       <p><strong>${structure.name}</strong> — ${structure.currentRp}/${structure.totalRp} RP</p>
       <p>${localize("rpRemaining")}: ${rpNeeded} RP</p>
       <p><strong>Kingdom RP Available:</strong> ${availableRp} RP</p>
@@ -763,7 +1083,7 @@ async function promptSpendRp(structure, maxRp) {
     const DialogV2 = foundry.applications?.api?.DialogV2;
     if (DialogV2) {
       const amount = await DialogV2.prompt({
-        window: { title: localize("spendRp") },
+        window: { title: options.title ?? localize("spendRp") },
         content,
         ok: {
           label: localize("spendRp"),
@@ -776,12 +1096,12 @@ async function promptSpendRp(structure, maxRp) {
         },
         position: { width: 350 }
       });
-      if (amount > 0) await spendRpOnStructure(structure, amount);
+      if (amount > 0) await spendRpOnStructure(structure, amount, options);
       return amount;
     } else {
       return new Promise((resolve) => {
         new Dialog({
-          title: localize("spendRp"),
+          title: options.title ?? localize("spendRp"),
           content,
           buttons: {
             spend: {
@@ -790,7 +1110,7 @@ async function promptSpendRp(structure, maxRp) {
               callback: async (html) => {
                 const val = parseInt(html.find('[name="rp-amount"]').val()) || 0;
                 const amount = Math.min(Math.max(0, val), effectiveMax);
-                if (amount > 0) await spendRpOnStructure(structure, amount);
+                if (amount > 0) await spendRpOnStructure(structure, amount, options);
                 resolve(amount);
               }
             },
@@ -809,7 +1129,7 @@ async function promptSpendRp(structure, maxRp) {
   }
 }
 
-async function spendRpOnStructure(structure, amount) {
+async function spendRpOnStructure(structure, amount, options = {}) {
   const actor = await fromUuid(structure.actorUuid);
   if (!actor) {
     ui.notifications.error(`Could not find actor for ${structure.name}`);
@@ -849,6 +1169,15 @@ async function spendRpOnStructure(structure, amount) {
     });
   } else {
     ui.notifications.info(localize("rpSpent", { amount, structure: structure.name, current: newHp, total: structure.totalRp }));
+    if (options.source === "ongoing") {
+      await ChatMessage.create({
+        content: `<div class="vk-kth-chat-result">
+          <div class="result-header">${localize("ongoingConstructionTitle")}</div>
+          <div class="result-body"><p>${localize("rpSpent", { amount, structure: structure.name, current: newHp, total: structure.totalRp })}</p></div>
+        </div>`,
+        speaker: ChatMessage.getSpeaker()
+      });
+    }
   }
 }
 
@@ -989,7 +1318,7 @@ async function openAccelerateProjectDialog() {
   const allSkills = getAllConstructionSkills(chosenStructure.structureData);
   const edifice = isEdifice(chosenStructure.structureData);
   const kingdomLevel = kingdomData?.level ?? 1;
-  const resourceDieSize = getResourceDieSize(kingdomLevel);
+  const resourceDieSize = getResourceDieSize(kingdomData);
 
   const pending = {
     structure: chosenStructure,
@@ -1074,7 +1403,7 @@ async function fallbackCustomCheck(structure, kingdomActor, kingdomData) {
 
   const accelerateDC = skillInfo.dc + 2;
   const kingdomLevel = kingdomData?.level ?? 1;
-  const resourceDieSize = getResourceDieSize(kingdomLevel);
+  const resourceDieSize = getResourceDieSize(kingdomData);
   const edifice = isEdifice(structure.structureData);
 
   const skillRanks = kingdomData?.skillRanks || {};
@@ -2705,22 +3034,20 @@ function buildGroupSelectionHtml(groups) {
 
     let badgeHtml = "";
     if (requestedThisTurn) {
-      badgeHtml = `<span style="display:inline-block;font-size:0.7rem;font-weight:600;color:#b71c1c;background:rgba(183,28,28,0.1);border:1px solid rgba(183,28,28,0.3);border-radius:3px;padding:1px 6px;margin-top:3px">Requested This Turn</span>`;
+      badgeHtml = `<span class="vk-kth-aid-badge vk-kth-aid-badge-requested">Requested This Turn</span>`;
     } else if (escalation > 0) {
-      badgeHtml = `<span style="display:inline-block;font-size:0.7rem;font-weight:600;color:#e65100;background:rgba(230,81,0,0.1);border:1px solid rgba(230,81,0,0.3);border-radius:3px;padding:1px 6px;margin-top:3px">DC +${escalation} from prior requests</span>`;
+      badgeHtml = `<span class="vk-kth-aid-badge vk-kth-aid-badge-escalated">DC +${escalation} from prior requests</span>`;
     }
 
     html += `
       <div class="vk-kth-aid-group-card ${disabledClass}" data-group-name="${group.name}" title="${disabledTitle}">
-        <div style="display:flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:4px;background:rgba(0,0,0,0.06);font-size:1.3rem;flex-shrink:0">🏛</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:0.95rem;color:#1a1a1a">${group.name}</div>
-          <div style="font-size:0.8rem;color:#4a4a4a;line-height:1.4">${detailsParts.join(" ")}</div>
+        <div class="vk-kth-aid-group-icon">🏛</div>
+        <div class="vk-kth-structure-info">
+          <div class="vk-kth-structure-name">${group.name}</div>
+          <div class="vk-kth-structure-details">${detailsParts.join(" ")}</div>
           ${badgeHtml}
         </div>
-        <div style="text-align:center;flex-shrink:0;padding:0 0.25rem">
-          <div style="font-size:1.1rem;font-weight:700;color:#1a1a1a">DC ${finalDC}</div>
-        </div>
+        <div class="vk-kth-aid-group-dc">DC ${finalDC}</div>
       </div>`;
   }
   html += '</div>';
@@ -2733,21 +3060,21 @@ function buildGroupSelectionHtml(groups) {
     const parts = [];
     if (requestedGroups.length > 0) {
       const names = requestedGroups.map(([n]) => n).join(", ");
-      parts.push(`<p style="margin:0.25rem 0;font-size:0.8rem;color:#4a4a4a"><strong>Requested this turn:</strong> ${names}</p>`);
+      parts.push(`<p style="margin:0.25rem 0;font-size:0.8rem"><strong>Requested this turn:</strong> ${names}</p>`);
     }
     if (hasEscalation) {
       const escalatedNames = Object.entries(tracker.groups || {})
         .filter(([, d]) => (d.escalation || 0) > 0)
         .map(([n, d]) => `${n} (+${d.escalation})`)
         .join(", ");
-      parts.push(`<p style="margin:0.25rem 0;font-size:0.75rem;color:#666">Escalation: ${escalatedNames}</p>`);
+      parts.push(`<p style="margin:0.25rem 0;font-size:0.75rem">Escalation: ${escalatedNames}</p>`);
     }
     html += `
-      <details class="vk-kth-turn-tracker" style="border-color:rgba(0,0,0,0.15);color:#4a4a4a" open>
-        <summary style="color:#4a4a4a">Foreign Aid Tracking</summary>
+      <details class="vk-kth-turn-tracker" open>
+        <summary>Foreign Aid Tracking</summary>
         ${parts.join("")}
-        <button type="button" data-action="reset-aid-tracker" class="vk-kth-reset-button" style="color:#4a4a4a;border-color:rgba(0,0,0,0.2);background:rgba(0,0,0,0.05)">Reset Turn Tracking</button>
-        <button type="button" data-action="clear-aid-tracker" class="vk-kth-reset-button" style="color:#b71c1c;border-color:rgba(183,28,28,0.3);background:rgba(183,28,28,0.05);margin-left:0.3rem">Clear All Escalation</button>
+        <button type="button" data-action="reset-aid-tracker" class="vk-kth-reset-button">Reset Turn Tracking</button>
+        <button type="button" data-action="clear-aid-tracker" class="vk-kth-reset-button vk-kth-reset-button-danger">Clear All Escalation</button>
       </details>`;
   }
 
@@ -3035,7 +3362,7 @@ Hooks.on("createChatMessage", async (message) => {
   const kingdomActor = findKingdomActor();
   const kingdomData = kingdomActor ? getKingdomData(kingdomActor) : null;
   const kingdomLevel = kingdomData?.level ?? 1;
-  const resourceDieSize = getResourceDieSize(kingdomLevel);
+  const resourceDieSize = getResourceDieSize(kingdomData);
   const resourceDieFormula = `1d${resourceDieSize}`;
 
   let outcomeHtml = "";
@@ -3161,6 +3488,283 @@ function installForeignAidClickInterceptor() {
       setTimeout(doEndTurnReset, 500);
     }
   });
+}
+
+// ================================================================
+// ================================================================
+//  RECONNOITER HEX (V&K) — Zone-based DC
+// ================================================================
+// ================================================================
+
+// Stolen Lands zones and their levels (same order as the Kingmaker module's zone list)
+const KINGMAKER_ZONES = [
+  { name: "Rostland Hinterlands", level: 1 },
+  { name: "Greenbelt", level: 2 },
+  { name: "Tuskwater", level: 3 },
+  { name: "Kamelands", level: 4 },
+  { name: "Narlmarches", level: 5 },
+  { name: "Sellen Hills", level: 6 },
+  { name: "Dunsward", level: 7 },
+  { name: "Nomen Heights", level: 8 },
+  { name: "Tors of Levenies", level: 9 },
+  { name: "Hooktongue Slough", level: 10 },
+  { name: "Drelev", level: 11 },
+  { name: "Tiger Lords", level: 12 },
+  { name: "Rushlight", level: 13 },
+  { name: "Glenebon Lowlands", level: 14 },
+  { name: "Pitax", level: 15 },
+  { name: "Glenebon Uplands", level: 16 },
+  { name: "Numeria", level: 17 },
+  { name: "Thousand Voices", level: 18 },
+  { name: "Branthlend Mountains", level: 19 }
+];
+
+const RECONNOITER_HEX_SKILLS = [
+  { skill: "wilderness", proficiencyRank: 0 },
+  { skill: "exploration", proficiencyRank: 0 }
+];
+
+/**
+ * V&K: DC = Control DC + zone level - kingdom level.
+ */
+function calculateReconnoiterDC(kingdomData, zoneLevel) {
+  return calculateControlDC(kingdomData) + zoneLevel - (kingdomData?.level ?? 1);
+}
+
+/**
+ * Build the Reconnoiter Hex (V&K) activity. It shares the built-in's id, so km-tools
+ * uses it in place of the built-in (which only allows Wilderness). Result text is taken
+ * from km-tools' own translations so it stays identical to the built-in.
+ */
+function buildReconnoiterHexActivity() {
+  const t = (key) => game.i18n.localize(`${KM_TOOLS_ID}.activities.reconnoiter-hex-vk.${key}`);
+  return {
+    id: "reconnoiter-hex-vk",
+    title: "Reconnoiter Hex (V&K)",
+    oncePerRound: false,
+    fortune: false,
+    enabled: true,
+    phase: "leadership",
+    dc: "control",
+    defaultToBestSkill: false,
+    skills: { wilderness: 0, exploration: 0 },
+    description: "<p>You send a team to spend time surveying and exploring a specific hex, getting the lay of the land and looking for unusual features and specific sites. Spend <strong>1 RP</strong> and then attempt a basic Exploration or Wilderness check.</p><p>The DC equals your kingdom's Control DC + the level of the zone containing the hex − your kingdom's level. You'll be asked to pick the zone before rolling.</p>",
+    criticalSuccess: {
+      msg: t("criticalSuccess.msg"),
+      modifiers: [
+        {
+          name: t("criticalSuccess.modifiers.reconnoiteringSecondTime.name"),
+          buttonLabel: t("criticalSuccess.modifiers.reconnoiteringSecondTime.buttonLabel"),
+          downgradeResults: [{ downgrade: "criticalSuccess" }],
+          turns: 1,
+          applyIf: [{ eq: ["@activity", "reconnoiter-hex-vk"] }],
+          value: 0,
+          type: "untyped",
+          enabled: true
+        }
+      ]
+    },
+    success: { msg: t("success.msg") },
+    failure: { msg: t("failure.msg") },
+    criticalFailure: {
+      msg: t("criticalFailure.msg"),
+      modifiers: [
+        {
+          turns: 2,
+          name: t("criticalFailure.modifiers.lostTeam.name"),
+          buttonLabel: t("criticalFailure.modifiers.lostTeam.buttonLabel"),
+          enabled: true,
+          applyIf: [{ eq: ["@ability", "loyalty"] }],
+          value: -1,
+          type: "circumstance"
+        }
+      ]
+    }
+  };
+}
+
+async function ensureReconnoiterHexActivity(kingdomActor) {
+  const kingdomData = getKingdomData(kingdomActor);
+  if (!kingdomData) return;
+
+  const updated = foundry.utils.deepClone(kingdomData);
+  if (!updated.homebrewActivities) updated.homebrewActivities = [];
+
+  const activity = buildReconnoiterHexActivity();
+  const existingIdx = updated.homebrewActivities.findIndex(a => a.id === activity.id);
+  if (existingIdx >= 0) {
+    // Always replace with the latest definition to pick up fixes
+    updated.homebrewActivities[existingIdx] = activity;
+  } else {
+    updated.homebrewActivities.push(activity);
+  }
+
+  await kingdomActor.setFlag(KM_TOOLS_ID, "kingdom-sheet", updated);
+  console.log(`${MODULE_ID} | Registered/updated Reconnoiter Hex (V&K) as homebrew activity`);
+}
+
+function buildZoneSelectionHtml(kingdomData) {
+  const controlDC = calculateControlDC(kingdomData);
+  const kingdomLevel = kingdomData?.level ?? 1;
+
+  let html = `<p class="vk-kth-aid-intro">Which zone contains the hex? DC = Control DC ${controlDC} + zone level − kingdom level ${kingdomLevel}.</p>`;
+  html += '<div class="vk-kth-structure-list" style="gap:0.4rem">';
+  for (const zone of KINGMAKER_ZONES) {
+    const dc = calculateReconnoiterDC(kingdomData, zone.level);
+    html += `
+      <div class="vk-kth-aid-group-card" data-zone-level="${zone.level}" data-zone-name="${zone.name}">
+        <div class="vk-kth-aid-group-icon">${zone.level}</div>
+        <div class="vk-kth-structure-info">
+          <div class="vk-kth-structure-name">${zone.name}</div>
+          <div class="vk-kth-structure-details">Zone level ${zone.level}</div>
+        </div>
+        <div class="vk-kth-aid-group-dc">DC ${dc}</div>
+      </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+/**
+ * Ask which zone is being reconnoitered, then open km-tools' check dialog with the computed DC.
+ */
+async function openReconnoiterHexDialog() {
+  const kingdomActor = findKingdomActor();
+  if (!kingdomActor) {
+    ui.notifications.warn(localize("noKingdomActor"));
+    return;
+  }
+  const kingdomData = getKingdomData(kingdomActor);
+  const title = "Reconnoiter Hex (V&K) — Select Zone";
+
+  const DialogV2 = foundry.applications?.api?.DialogV2;
+  let chosenZone = null;
+
+  if (DialogV2) {
+    try {
+      chosenZone = await DialogV2.wait({
+        window: { title },
+        content: buildZoneSelectionHtml(kingdomData),
+        buttons: [
+          {
+            action: "select",
+            label: "Reconnoiter",
+            icon: "fas fa-binoculars",
+            default: true,
+            callback: (event, button, dialog) => {
+              const selected = dialog.element.querySelector(".vk-kth-aid-group-card.selected");
+              if (!selected) return null;
+              return KINGMAKER_ZONES.find(z => z.name === selected.dataset.zoneName) ?? null;
+            }
+          },
+          {
+            action: "cancel",
+            label: localize("cancel"),
+            icon: "fas fa-times",
+            callback: () => null
+          }
+        ],
+        rejectClose: false,
+        position: { width: 460 },
+        render: (event, dialog) => {
+          const el = dialog.element;
+          if (!el) return;
+          const okBtn = el.querySelector('[data-action="select"]');
+          if (okBtn) okBtn.disabled = true;
+
+          el.querySelectorAll(".vk-kth-aid-group-card").forEach(card => {
+            card.addEventListener("click", (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              el.querySelectorAll(".vk-kth-aid-group-card").forEach(c => c.classList.remove("selected"));
+              card.classList.add("selected");
+              if (okBtn) okBtn.disabled = false;
+            });
+          });
+        }
+      });
+    } catch {
+      return;
+    }
+  } else {
+    chosenZone = await new Promise((resolve) => {
+      let selectedZone = null;
+      new Dialog({
+        title,
+        content: buildZoneSelectionHtml(kingdomData),
+        buttons: {
+          select: {
+            icon: '<i class="fas fa-binoculars"></i>',
+            label: "Reconnoiter",
+            callback: () => resolve(selectedZone)
+          },
+          cancel: {
+            icon: '<i class="fas fa-times"></i>',
+            label: localize("cancel"),
+            callback: () => resolve(null)
+          }
+        },
+        default: "select",
+        render: (html) => {
+          const selectBtn = html.closest(".dialog").find('button[data-button="select"]');
+          selectBtn.prop("disabled", true);
+          html.find(".vk-kth-aid-group-card").on("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            html.find(".vk-kth-aid-group-card").removeClass("selected");
+            $(this).addClass("selected");
+            selectedZone = KINGMAKER_ZONES.find(z => z.name === this.dataset.zoneName) ?? null;
+            selectBtn.prop("disabled", false);
+          });
+        },
+        close: () => resolve(null)
+      }, { width: 460 }).render(true);
+    });
+  }
+
+  if (!chosenZone) return;
+
+  const finalDC = calculateReconnoiterDC(kingdomData, chosenZone.level);
+  console.log(`${MODULE_ID} | Reconnoiter Hex: ${chosenZone.name} (level ${chosenZone.level}), DC ${finalDC}`);
+
+  const kingdomSheetApp = findKingdomSheetApp();
+  if (!kingdomSheetApp) {
+    ui.notifications.warn("Kingdom sheet not found. Open the Kingdom sheet first.");
+    return;
+  }
+
+  // Patch the homebrew activity's DC to the computed value while the check dialog opens
+  const activityOverride = patchHomebrewActivity(kingdomActor, finalDC, RECONNOITER_HEX_SKILLS, "reconnoiter-hex-vk");
+  if (!activityOverride) {
+    ui.notifications.warn("Reconnoiter Hex (V&K) homebrew activity not found. A GM must load the world once to register it.");
+    return;
+  }
+
+  const fakeTarget = document.createElement("button");
+  fakeTarget.dataset.action = "perform-activity";
+  fakeTarget.dataset.activity = "reconnoiter-hex-vk";
+
+  try {
+    kingdomSheetApp._onClickAction(new Event("click"), fakeTarget);
+    await new Promise(r => setTimeout(r, 200));
+  } catch (err) {
+    console.warn(`${MODULE_ID} | Native handler failed for Reconnoiter Hex:`, err);
+  } finally {
+    restoreHomebrewActivity(kingdomActor, activityOverride, "reconnoiter-hex-vk");
+  }
+}
+
+function installReconnoiterHexClickInterceptor() {
+  document.body.addEventListener("click", (e) => {
+    const btn = e.target.closest('[data-action="perform-activity"]');
+    if (!btn) return;
+    if (btn.dataset.activity !== "reconnoiter-hex-vk") return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    console.log(`${MODULE_ID} | Intercepted reconnoiter-hex-vk click, opening zone picker`);
+    openReconnoiterHexDialog();
+  }, true);
 }
 
 // ========================
@@ -3667,6 +4271,9 @@ Hooks.once("ready", async () => {
   // Install capturing click interceptor for our homebrew activities
   installClickInterceptor();
 
+  // V&K construction limits: Ongoing Construction "Spend RP" button
+  installConstructionLimitInterceptor();
+
   // Install global capturing handler for Blessed Solution checkbox (must be before
   // any ApplicationV2 handlers to ensure the checkbox always works)
   installBlessedCheckboxGlobalHandler();
@@ -3695,6 +4302,12 @@ Hooks.once("ready", async () => {
 
   // Install click interceptor for Observe Customs
   installObserveCustomsClickInterceptor();
+
+  // Register Reconnoiter Hex (V&K) override (adds Exploration) + zone picker interceptor
+  if (kingdomActor && game.user.isGM) {
+    await ensureReconnoiterHexActivity(kingdomActor);
+  }
+  installReconnoiterHexClickInterceptor();
 
   // Install chat button handlers for Observe Customs
   installObserveCustomsChatButtonHandler();

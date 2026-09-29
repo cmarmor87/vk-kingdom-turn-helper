@@ -52,6 +52,25 @@ All eight structures ship with **unified token art** — a matching set of custo
 this module, so infrastructure placed on your settlement maps shares one consistent visual style,
 including distinct art for each upgraded variant.
 
+### V&K Construction Limits
+
+V&K limits the RP a kingdom may spend on one structure each turn by the structure's traits:
+**Normal 2×** the Resource Die, **Residential 3×**, **Infrastructure 1×**, and **Edifice 1×**. A
+settlement with a completed **Construction Yard** adds +2 (Residential +3, Edifice +1).
+pf2e-kingmaker-tools' **Partial Structure Construction** setting applies a flat 2× limit to every
+structure. With that setting enabled, this module applies the V&K limits instead:
+
+- **Build Structure chat card** — the *Pay* amount and the *Set Structure HP* value are corrected for
+  the structure's traits, with a note showing the limit and whether construction continues next turn.
+- **Ongoing Construction** — the Structure Browser's *Spend RP* button on an unfinished structure is
+  capped at the V&K limit, less any Accelerate Project critical-failure penalty that turn.
+- **Structure Browser** — *Max RP per Structure* shows the limit for each trait, and partial costs on
+  buildable structures use the right limit.
+- **Resource Die size** comes from Kingdom Size (claimed hexes), not kingdom level. Accelerate Project
+  and Request Foreign Aid use it.
+- **Accelerate Project** lists structures whose RP is not fully paid. Slowed structures are delayed
+  failed builds, which are rebuilt rather than accelerated.
+
 ## Installation
 
 ### Method 1: Manifest URL (Recommended)
