@@ -1,5 +1,13 @@
 {
   "vk-kingdom-turn-helper": {
+    "untrainedImprovisationName": "Untrained Improvisation (V&K)",
+    "untrainedImprovisationHint": "Automatically drives Kingmaker Tools' Always Increase Untrained Skills By setting from kingdom level: None at level 1, Half Level (rounded down) at levels 2–6, and Full Level at level 7+. This does not grant trained actions. Turning this off leaves that setting under manual control.",
+    "untrainedImprovisationUpdated": "Untrained Improvisation (V&K): untrained kingdom skills now use {mode}.",
+    "untrainedImprovisationModes": {
+      "none": "+0",
+      "half": "half level (rounded down)",
+      "full": "full level"
+    },
     "title": "Accelerate Project",
     "dialogTitle": "Accelerate Project — Select Structure",
     "noStructures": "No structures are currently under construction.",

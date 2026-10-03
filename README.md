@@ -1,6 +1,6 @@
 # V&K Kingmaker Kingdom Turn Helper
 
-A [Foundry VTT](https://foundryvtt.com/) module that adds kingdom turn activities and custom infrastructure structures from **Vance & Kerenshara's Remastered Kingdom Building Rules** for the Pathfinder 2E Kingmaker adventure path.
+A [Foundry VTT](https://foundryvtt.com/) module that adds kingdom turn activities, custom infrastructure structures, and automatic Untrained Improvisation from **Vance & Kerenshara's Remastered Kingdom Building Rules** for the Pathfinder 2E Kingmaker adventure path.
 
 ## Requirements
 
@@ -73,6 +73,20 @@ structure. With that setting enabled, this module applies the V&K limits instead
   and Request Foreign Aid use it.
 - **Accelerate Project** lists structures whose RP is not fully paid. Slowed structures are delayed
   failed builds, which are rebuilt rather than accelerated.
+
+### Untrained Improvisation (V&K)
+
+> Your proficiency bonus to untrained skill checks is equal to half your level instead of +0.
+> If you're 7th level or higher, the bonus increases to your full level instead.
+
+This automatic kingdom feature grants +0 at level 1, half level (rounded down) at levels 2–6,
+and full level at level 7+. It never grants access to trained actions and requires no feat selection.
+
+The active GM's client synchronizes Kingmaker Tools' **Always Increase Untrained Skills By** setting
+on world load and whenever the kingdom data changes, so the native proficiency bonus appears on
+untrained skills in the kingdom sheet and check dialogs. The **Untrained Improvisation (V&K)** world
+setting is enabled by default. Turning it off leaves the current value under manual control;
+turning it back on immediately synchronizes it with kingdom level.
 
 ## Installation
 

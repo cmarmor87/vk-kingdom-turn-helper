@@ -894,6 +894,48 @@ Hooks.on("renderApplicationV2", (app, element) => {
 });
 
 // ========================
+// Untrained Improvisation (V&K)
+// ========================
+
+function untrainedImprovisationMode(level) {
+  if (level >= 7) return "full";
+  if (level >= 2) return "half";
+  return "none";
+}
+
+async function syncUntrainedImprovisation(kingdomActor) {
+  // Use one GM for ready, setting changes, and actor updates alike.
+  if (!game.user.isGM || game.users.activeGM?.id !== game.user.id) return;
+  if (!game.settings.get(MODULE_ID, "untrainedImprovisation")) return;
+  const kingdomData = getKingdomData(kingdomActor);
+  if (!kingdomData) return;
+
+  const mode = untrainedImprovisationMode(kingdomData.level);
+  // Our own flag update triggers updateActor again; do not write twice.
+  if (kingdomData.settings?.proficiencyMode === mode) return;
+
+  const updated = foundry.utils.deepClone(kingdomData);
+  updated.settings ??= {};
+  updated.settings.proficiencyMode = mode;
+  await kingdomActor.setFlag(KM_TOOLS_ID, "kingdom-sheet", updated);
+  console.log(`${MODULE_ID} | Untrained Improvisation: proficiencyMode changed to ${mode} at kingdom level ${kingdomData.level}`);
+  ui.notifications.info(localize("untrainedImprovisationUpdated", {
+    mode: localize(`untrainedImprovisationModes.${mode}`)
+  }));
+}
+
+Hooks.on("updateActor", (actor, changes, options, userId) => {
+  if (!game.user.isGM || game.users.activeGM?.id !== game.user.id) return;
+  // Accept both nested flag updates and dotted paths to individual sheet fields.
+  const flags = foundry.utils.expandObject(changes).flags?.[KM_TOOLS_ID];
+  if (!flags || !Object.prototype.hasOwnProperty.call(flags, "kingdom-sheet")) return;
+  if (actor.id !== findKingdomActor()?.id) return;
+  syncUntrainedImprovisation(actor).catch(err => {
+    console.error(`${MODULE_ID} | Could not sync Untrained Improvisation:`, err);
+  });
+});
+
+// ========================
 // Homebrew Activity Registration
 // ========================
 
@@ -4191,6 +4233,21 @@ function installObserveCustomsChatButtonHandler() {
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Initializing V&K Kingmaker Kingdom Turn Helper`);
 
+  game.settings.register(MODULE_ID, "untrainedImprovisation", {
+    name: localize("untrainedImprovisationName"),
+    hint: localize("untrainedImprovisationHint"),
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: enabled => {
+      if (!enabled || !game.ready || !game.user.isGM) return;
+      syncUntrainedImprovisation(findKingdomActor()).catch(err => {
+        console.error(`${MODULE_ID} | Could not sync Untrained Improvisation:`, err);
+      });
+    }
+  });
+
   game.settings.register(MODULE_ID, "turnTracker", {
     name: "Turn Tracker",
     hint: "Tracks which structures have been accelerated this turn.",
@@ -4231,6 +4288,7 @@ Hooks.once("ready", async () => {
 
   const kingdomActor = findKingdomActor();
   if (kingdomActor && game.user.isGM) {
+    await syncUntrainedImprovisation(kingdomActor);
     await ensureHomebrewActivity(kingdomActor);
     await ensureBlessedSolutionActivity(kingdomActor);
   }
@@ -4238,6 +4296,7 @@ Hooks.once("ready", async () => {
   const moduleObj = game.modules.get(MODULE_ID);
   if (moduleObj) {
     moduleObj.api = {
+      untrainedImprovisationMode,
       openDialog: openAccelerateProjectDialog,
       openBlessedSolutionDialog,
       findStructuresUnderConstruction,
